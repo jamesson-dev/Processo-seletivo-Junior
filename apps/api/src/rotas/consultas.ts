@@ -76,6 +76,11 @@ rotasConsultas.post('/:id/cancelar', permitir('paciente', 'recepcao'), async (re
     res.status(404).json({ erro: 'Consulta não encontrada' })
     return
   }
+  // Paciente só pode cancelar a própria consulta
+  if (req.usuario.perfil === 'paciente' && consulta.pacienteId !== req.usuario.id) {
+    res.status(403).json({ erro: 'Você não tem permissão para cancelar esta consulta' })
+    return
+  }
   if (consulta.status !== 'agendada') {
     res.status(409).json({ erro: 'Só é possível cancelar uma consulta agendada' })
     return
