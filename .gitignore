@@ -1,6 +1,24 @@
+# Dependências
 node_modules
+
+# Next.js
 .next
 next-env.d.ts
+
+# TypeScript
 *.tsbuildinfo
+
+# Prisma (gerado automaticamente)
 apps/api/src/generated
+
+# Sistema operacional
 .DS_Store
+Thumbs.db
+
+# Variáveis de ambiente
+.env
+.env.local
+.env.*.local
+
+# Kiro IDE
+.kiro

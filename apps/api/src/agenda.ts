@@ -36,7 +36,13 @@ export function cabeNoExpediente({ hora, tipo }: Horario) {
 }
 
 export function temConflito(marcadas: Horario[], nova: Horario) {
-  return marcadas.some((marcada) => marcada.hora === nova.hora)
+  const novoInicio = paraMinutos(nova.hora)
+  const novoFim = novoInicio + DURACAO_MINUTOS[nova.tipo]
+  return marcadas.some((marcada) => {
+    const marcadaInicio = paraMinutos(marcada.hora)
+    const marcadaFim = marcadaInicio + DURACAO_MINUTOS[marcada.tipo]
+    return novoInicio < marcadaFim && novoFim > marcadaInicio
+  })
 }
 
 export function horariosDisponiveis(marcadas: Horario[], tipo: TipoConsulta, data: string, agora = new Date()) {

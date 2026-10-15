@@ -45,6 +45,54 @@ Retornar 404 ao invés de 403 para não revelar que a consulta existe — descar
 
 ---
 
+## B2 — temConflito não detectava sobreposição real de intervalos
+
+**O que eu vi**
+
+A função `temConflito` em `apps/api/src/agenda.ts` comparava apenas `marcada.hora === nova.hora`. Dois agendamentos com horas de início diferentes mas intervalos sobrepostos passavam sem conflito.
+
+**O que achei que era**
+
+Uma consulta `primeira` (60 min) marcada às 09:00 termina às 10:00. Um `retorno` (30 min) às 09:30 termina às 10:00. Os dois se sobrepõem, mas a função antiga não detectava o conflito porque 09:00 ≠ 09:30. Esse era o cenário relatado pela clínica: "o doutor ficou com dois pacientes no mesmo horário".
+
+**Como confirmei**
+
+Lendo o código de `apps/api/src/agenda.ts` e cruzando com as durações definidas em `packages/shared/src/index.ts` (`primeira: 60, retorno: 30`).
+
+**O que fiz e por quê**
+
+Substituí a comparação de igualdade por uma verificação de sobreposição de intervalos:
+
+```ts
+const novoInicio = paraMinutos(nova.hora)
+const novoFim = novoInicio + DURACAO_MINUTOS[nova.tipo]
+return marcadas.some((marcada) => {
+  const marcadaInicio = paraMinutos(marcada.hora)
+  const marcadaFim = marcadaInicio + DURACAO_MINUTOS[marcada.tipo]
+  return novoInicio < marcadaFim && novoFim > marcadaInicio
+})
+```
+
+A condição `A < B_fim && A_fim > B` é o teste padrão de sobreposição de intervalos: dois intervalos se sobrepõem quando um começa antes do outro terminar e termina depois do outro começar.
+
+**Como testei**
+
+Verificação de código. Casos cobertos pela lógica:
+- 09:00 `primeira` (até 10:00) vs 09:30 `retorno` → conflito ✓
+- 09:00 `primeira` (até 10:00) vs 10:00 `retorno` → sem conflito ✓
+- 09:00 `retorno` (até 09:30) vs 09:30 `primeira` → sem conflito ✓
+- 09:00 `retorno` vs 09:00 `primeira` → conflito ✓
+
+**O que considerei e descartei**
+
+Manter a comparação por hora de início e exigir que a grade fosse suficientemente espaçada para evitar o problema — descartado porque a regra de negócio tem duas durações diferentes (30 e 60 min) e a grade de 30 min não é suficiente para garantir isso.
+
+**Quanto tempo levou**
+
+~15 minutos
+
+---
+
 ## Título curto do problema ou da decisão
 
 **O que eu vi**
