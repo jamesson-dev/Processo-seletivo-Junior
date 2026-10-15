@@ -9,13 +9,16 @@ import { api } from '@/lib/api'
 
 export default function MinhasConsultas() {
   const [consultas, setConsultas] = useState<Consulta[]>([])
+  const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [atualizacao, setAtualizacao] = useState(0)
 
   useEffect(() => {
+    setCarregando(true)
     api<Consulta[]>('/consultas/minhas')
       .then(setConsultas)
       .catch((e: Error) => setErro(e.message))
+      .finally(() => setCarregando(false))
   }, [atualizacao])
 
   async function cancelar(id: string) {
@@ -27,7 +30,7 @@ export default function MinhasConsultas() {
     }
   }
 
-  if (consultas.length === 0) return <p className="text-gray-500">Carregando suas consultas...</p>
+  if (carregando) return <p className="text-gray-500">Carregando suas consultas...</p>
 
   return (
     <div className="mx-auto max-w-md space-y-4">
@@ -38,13 +41,17 @@ export default function MinhasConsultas() {
 
       {erro && <Alert>{erro}</Alert>}
 
-      <ul className="space-y-3">
-        {consultas.map((consulta) => (
-          <li key={consulta.id}>
-            <CartaoConsulta consulta={consulta} onCancelar={cancelar} />
-          </li>
-        ))}
-      </ul>
+      {consultas.length === 0 ? (
+        <p className="text-gray-500">Você não tem consultas agendadas.</p>
+      ) : (
+        <ul className="space-y-3">
+          {consultas.map((consulta) => (
+            <li key={consulta.id}>
+              <CartaoConsulta consulta={consulta} onCancelar={cancelar} />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

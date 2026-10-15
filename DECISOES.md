@@ -125,21 +125,35 @@ Também considerei filtrar `status: { in: ['agendada'] }` para ser mais explíci
 
 ---
 
-## Título curto do problema ou da decisão
+## B4 — MinhasConsultas mostrava "Carregando..." para lista vazia
 
 **O que eu vi**
 
+Em `apps/web/src/components/organisms/MinhasConsultas/minhasConsultas.tsx`, a condição `if (consultas.length === 0)` retornava a mensagem "Carregando suas consultas..." tanto durante o carregamento quanto quando o paciente genuinamente não tinha consultas agendadas. Um paciente sem consultas ficava preso nessa mensagem para sempre.
+
 **O que achei que era**
+
+Falta de um estado de loading separado. O estado inicial de `consultas` é `[]`, igual ao estado após a resposta vazia da API.
 
 **Como confirmei**
 
+Lendo o código: `useState<Consulta[]>([])` começa vazio, e a condição `consultas.length === 0` não distingue "ainda carregando" de "carregou e está vazio".
+
 **O que fiz e por quê**
+
+Adicionei um estado `carregando` inicializado em `true`. O `useEffect` seta `carregando(true)` antes de chamar a API e usa `.finally()` para setar `carregando(false)` ao terminar (com sucesso ou erro). A mensagem "Carregando..." só aparece enquanto `carregando === true`. Quando termina e `consultas.length === 0`, exibe "Você não tem consultas agendadas."
 
 **Como testei**
 
+Verificação de código e inspeção visual no browser com um paciente sem consultas futuras.
+
 **O que considerei e descartei**
 
+Usar `null` como estado inicial ao invés de `[]` para distinguir "não carregou" de "vazio" — válido, mas o estado `carregando` explícito é mais legível e consistente com o padrão dos outros componentes do projeto.
+
 **Quanto tempo levou**
+
+~10 minutos
 
 ---
 
