@@ -157,7 +157,45 @@ Usar `null` como estado inicial ao invés de `[]` para distinguir "não carregou
 
 ---
 
-## B5 — MarcarConsulta exibia grade estática sem consultar horários disponíveis
+## B6 e B7 — AgendaDoDia com dependência faltando e data exibida errada
+
+**O que eu vi**
+
+Dois bugs no mesmo componente `apps/web/src/components/organisms/AgendaDoDia/agendaDoDia.tsx`:
+
+1. O `useEffect` que busca a agenda usava `[data, atualizacao]` como dependências, mas também usava `profissionalId` na URL. Ao trocar de profissional na recepção, a agenda não recarregava.
+
+2. O título da agenda usava `new Date(agenda.data)` diretamente sobre a string `'AAAA-MM-DD'`. Essa string é interpretada como UTC meia-noite, que em Recife (-03:00) vira o dia anterior — a agenda do dia 15 aparecia como "dia 14".
+
+**O que achei que era**
+
+B6: dependência esquecida no array do `useEffect` — o componente não observava mudança de `profissionalId`.
+
+B7: a lib `formato.ts` já tinha a função `formatarData` correta, que monta o `Date` a partir das partes `[ano, mes, dia]` sem passar por UTC. O componente simplesmente não a usava.
+
+**Como confirmei**
+
+Lendo o código: array de deps incompleto e `new Date(agenda.data)` ao invés de `formatarData(agenda.data)`.
+
+**O que fiz e por quê**
+
+B6: adicionei `profissionalId` ao array de dependências do `useEffect`.
+
+B7: substituí `new Date(agenda.data).toLocaleDateString(...)` por `formatarData(agenda.data)` que já estava disponível no projeto.
+
+**Como testei**
+
+Todos os testes existentes (9) continuam passando após as mudanças.
+
+**O que considerei e descartei**
+
+Nada relevante — a solução em ambos os casos era usar o que o projeto já tinha corretamente implementado.
+
+**Quanto tempo levou**
+
+~10 minutos
+
+---
 
 **O que eu vi**
 
