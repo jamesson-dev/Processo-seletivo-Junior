@@ -93,6 +93,38 @@ Manter a comparação por hora de início e exigir que a grade fosse suficientem
 
 ---
 
+## B3 — Consultas canceladas bloqueavam horários disponíveis
+
+**O que eu vi**
+
+A rota `GET /profissionais/:id/horarios` em `apps/api/src/rotas/profissionais.ts` buscava todas as consultas do profissional na data informada sem filtrar por `status`. Consultas canceladas ou com status `faltou` entravam no cálculo de horários disponíveis e bloqueavam slots que deveriam estar livres.
+
+**O que achei que era**
+
+Filtro de status ausente na query do Prisma. O relato da clínica era exatamente este: "quando alguém cancela, ninguém mais consegue marcar naquele horário".
+
+**Como confirmei**
+
+Lendo `apps/api/src/rotas/profissionais.ts`: `prisma.consulta.findMany({ where: { profissionalId, data } })` — sem `status: 'agendada'`. O teste de B3 que escrevi (`horário cancelado fica disponível para nova marcação`) confirmou o comportamento: a rota `POST /consultas` já filtrava corretamente, mas a rota `GET /horarios` não filtrava, então o frontend mostrava o horário como indisponível mesmo após o cancelamento.
+
+**O que fiz e por quê**
+
+Adicionei `status: 'agendada'` ao filtro da query em `GET /profissionais/:id/horarios`. Assim apenas consultas ativas bloqueiam horários na grade.
+
+**Como testei**
+
+O teste `horário cancelado fica disponível para nova marcação` em `consultas.test.ts` já cobre esse cenário e passa.
+
+**O que considerei e descartei**
+
+Também considerei filtrar `status: { in: ['agendada'] }` para ser mais explícito, mas `status: 'agendada'` é equivalente e mais simples.
+
+**Quanto tempo levou**
+
+~10 minutos
+
+---
+
 ## Título curto do problema ou da decisão
 
 **O que eu vi**
