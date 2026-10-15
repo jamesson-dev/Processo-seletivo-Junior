@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, type FormEvent } from 'react'
-import { GRADE, type Paciente, type TipoConsulta } from '@bemviver/shared'
+import { type Paciente, type TipoConsulta } from '@bemviver/shared'
 import Alert from '@/components/atoms/Alert/alert'
 import Button from '@/components/atoms/Button/button'
 import Card from '@/components/atoms/Card/card'
@@ -15,7 +15,9 @@ export default function MarcarConsulta({ profissionalId, data, onMarcada }: Marc
   const [pacientes, setPacientes] = useState<Paciente[]>([])
   const [pacienteId, setPacienteId] = useState('')
   const [tipo, setTipo] = useState<TipoConsulta>('primeira')
-  const [hora, setHora] = useState(GRADE[0])
+  const [horarios, setHorarios] = useState<string[]>([])
+  const [hora, setHora] = useState('')
+  const [carregandoHorarios, setCarregandoHorarios] = useState(false)
   const [mensagem, setMensagem] = useState<{ erro: boolean; texto: string } | null>(null)
 
   useEffect(() => {
@@ -23,6 +25,20 @@ export default function MarcarConsulta({ profissionalId, data, onMarcada }: Marc
       .then(setPacientes)
       .catch((e: Error) => setMensagem({ erro: true, texto: e.message }))
   }, [])
+
+  // Busca horários disponíveis sempre que profissional, data ou tipo mudam
+  useEffect(() => {
+    if (!profissionalId || !data) return
+    setCarregandoHorarios(true)
+    setHora('')
+    api<{ horarios: string[] }>(`/profissionais/${profissionalId}/horarios?data=${data}&tipo=${tipo}`)
+      .then(({ horarios }) => {
+        setHorarios(horarios)
+        setHora(horarios[0] ?? '')
+      })
+      .catch((e: Error) => setMensagem({ erro: true, texto: e.message }))
+      .finally(() => setCarregandoHorarios(false))
+  }, [profissionalId, data, tipo])
 
   async function marcar(evento: FormEvent) {
     evento.preventDefault()
@@ -57,15 +73,21 @@ export default function MarcarConsulta({ profissionalId, data, onMarcada }: Marc
           </Select>
         </Field>
         <Field label="Horário">
-          <Select value={hora} onChange={(e) => setHora(e.target.value)}>
-            {GRADE.map((h) => (
-              <option key={h} value={h}>
-                {h}
-              </option>
-            ))}
-          </Select>
+          {carregandoHorarios ? (
+            <p className="text-sm text-gray-500">Carregando horários...</p>
+          ) : horarios.length === 0 ? (
+            <p className="text-sm text-gray-500">Nenhum horário disponível para este dia.</p>
+          ) : (
+            <Select value={hora} onChange={(e) => setHora(e.target.value)}>
+              {horarios.map((h) => (
+                <option key={h} value={h}>
+                  {h}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
-        <Button type="submit" className="w-full">
+        <Button type="submit" className="w-full" disabled={horarios.length === 0 || carregandoHorarios}>
           Marcar
         </Button>
         {mensagem &&

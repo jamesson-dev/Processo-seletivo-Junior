@@ -157,7 +157,41 @@ Usar `null` como estado inicial ao invés de `[]` para distinguir "não carregou
 
 ---
 
-## Lembrete com n8n (bônus, se você fizer)
+## B5 — MarcarConsulta exibia grade estática sem consultar horários disponíveis
+
+**O que eu vi**
+
+O componente `MarcarConsulta` em `apps/web/src/components/organisms/MarcarConsulta/marcarConsulta.tsx` usava a constante `GRADE` do shared para listar todos os horários possíveis, sem consultar a API. Isso fazia a recepção ver horários já ocupados, de dias de folga ou no passado — o erro só aparecia após tentar marcar.
+
+**O que achei que era**
+
+O componente precisava chamar `GET /profissionais/:id/horarios?data=...&tipo=...` para buscar apenas os horários realmente disponíveis, assim como o componente `AgendarConsulta` da área do paciente já faz.
+
+**Como confirmei**
+
+Lendo o código: o `Select` de horário iterava diretamente sobre `GRADE` sem nenhuma chamada à API.
+
+**O que fiz e por quê**
+
+Substituí a `GRADE` estática por um estado `horarios` preenchido via `useEffect` que dispara sempre que `profissionalId`, `data` ou `tipo` mudam. Adicionei também:
+- Estado `carregandoHorarios` para feedback visual
+- Mensagem "Nenhum horário disponível" quando a lista retorna vazia (folga, dia não útil, etc.)
+- Botão "Marcar" desabilitado enquanto carrega ou sem horários disponíveis
+- `hora` começa vazia e é preenchida com o primeiro horário disponível ao carregar
+
+**Como testei**
+
+Verificação de código. Testes automatizados serão adicionados a seguir.
+
+**O que considerei e descartei**
+
+Manter a `GRADE` como fallback inicial e só atualizar após a resposta — descartado porque mostraria horários inválidos por um instante, que é exatamente o problema original.
+
+**Quanto tempo levou**
+
+~20 minutos
+
+---
 
 **Como montei o fluxo**
 
