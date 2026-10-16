@@ -237,7 +237,60 @@ Manter a `GRADE` como fallback inicial e só atualizar após a resposta — desc
 
 **O que mudaria para usar em produção**
 
+## Funcionalidade 1 — Busca de profissionais por especialidade
+
+**O que eu vi**
+
+O fluxo de agendamento listava todos os profissionais juntos, sem nenhuma forma de filtrar. Com 6 especialidades e tendência de crescimento, o paciente (e a recepção) precisavam percorrer a lista completa para encontrar quem queriam.
+
+**O que achei que era**
+
+Filtro simples: na API, aceitar `?especialidade=` como query param opcional. No frontend, um `Select` de especialidade antes do `Select` de profissional que restringe a lista.
+
+**Como confirmei**
+
+Lendo o código: `GET /profissionais` não tinha nenhum filtro. Os componentes `AgendarConsulta` e `RecepcaoPage` listavam todos os profissionais sem filtragem.
+
+**O que fiz e por quê**
+
+API (`apps/api/src/rotas/profissionais.ts`): adicionei `where: { especialidade: { equals: especialidade, mode: 'insensitive' } }` condicional — sem o param, retorna todos. O `mode: 'insensitive'` garante que `cardiologia` e `Cardiologia` retornam o mesmo resultado.
+
+Frontend: optei por filtrar no **cliente** (client-side com `useMemo`) ao invés de fazer uma nova chamada à API a cada troca de especialidade. Os profissionais já estão carregados — recalcular a lista filtrada em memória é instantâneo e evita latência desnecessária.
+
+Adicionei o seletor de especialidade em dois lugares:
+- `AgendarConsulta` (área do paciente) — antes do select de profissional
+- `RecepcaoPage` (área da recepção) — antes do select de profissional, com seleção automática do primeiro profissional do filtro
+
+Ao trocar de especialidade, o profissional selecionado é resetado para evitar estado inconsistente.
+
+**Como testei**
+
+Testes na API cobrindo: filtro exato, sem filtro retorna todos, filtro sem resultado retorna `[]`, e case-insensitive. 16 testes passando.
+
+**O que considerei e descartei**
+
+Filtrar na API a cada troca — descartado por desnecessário dado o volume pequeno de profissionais já carregados no cliente.
+
+Criar um endpoint dedicado `GET /especialidades` — descartado por over-engineering; as especialidades são derivadas da lista de profissionais que já existe.
+
+**Quanto tempo levou**
+
+~30 minutos
+
+---
+
 ## Ordem das funcionalidades, com justificativa
+
+1. **Busca de profissionais por especialidade** — baixo esforço, alto impacto no fluxo principal de agendamento. Sem isso, o paciente vê uma lista plana sem contexto.
+2. **Histórico de consultas do paciente** — o endpoint já existe (`GET /consultas/minhas`), só precisava remover o filtro de data futura e criar a tela.
+3. **Confirmação de presença pelo paciente** — resolve o problema de cancelamentos no mesmo dia sem criar política complexa.
+4. **Remarcação pelo próprio paciente** — reduz carga na recepção e melhora a autonomia do paciente.
+5. **Lista de espera** — depende de cancelamentos funcionando corretamente (B3 precisava estar corrigido antes).
+6. **Lembrete automático** (bônus n8n) — endpoint de integração já existe, é implementação pura de fluxo.
+7. **Bloqueio de agenda por período** — extensão natural das folgas já implementadas.
+8. **Relatório de faltas** — útil para gestão, mas só faz sentido com dados acumulados ao longo do tempo.
+9. **Exportação da agenda em PDF** — operacional, não core do negócio.
+10. **Tema escuro** — cosmético, nenhum impacto funcional.
 
 ## Como usei IA
 

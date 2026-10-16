@@ -6,8 +6,11 @@ import { prisma } from '../prisma'
 
 export const rotasProfissionais = Router()
 
-rotasProfissionais.get('/', async (_req, res) => {
+rotasProfissionais.get('/', async (req, res) => {
+  const especialidade = req.query.especialidade ? String(req.query.especialidade) : undefined
+
   const profissionais = await prisma.profissional.findMany({
+    where: especialidade ? { especialidade: { equals: especialidade, mode: 'insensitive' } } : undefined,
     include: { usuario: { select: { nome: true } } },
     orderBy: { usuario: { nome: 'asc' } },
   })

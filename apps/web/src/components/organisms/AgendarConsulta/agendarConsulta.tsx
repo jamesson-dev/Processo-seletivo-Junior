@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { hojeEmRecife, type Profissional, type TipoConsulta } from '@bemviver/shared'
 import Alert from '@/components/atoms/Alert/alert'
 import Button from '@/components/atoms/Button/button'
@@ -17,6 +17,7 @@ import { NOME_TIPO } from '@/lib/formato'
 export default function AgendarConsulta() {
   const router = useRouter()
   const [profissionais, setProfissionais] = useState<Profissional[]>([])
+  const [especialidade, setEspecialidade] = useState('')
   const [profissionalId, setProfissionalId] = useState('')
   const [data, setData] = useState('')
   const [tipo, setTipo] = useState<TipoConsulta>('primeira')
@@ -30,6 +31,18 @@ export default function AgendarConsulta() {
       .then(setProfissionais)
       .catch((e: Error) => setErro(e.message))
   }, [])
+
+  // Especialidades únicas ordenadas alfabeticamente
+  const especialidades = useMemo(
+    () => [...new Set(profissionais.map((p) => p.especialidade))].sort(),
+    [profissionais],
+  )
+
+  // Profissionais filtrados pela especialidade selecionada
+  const profissionaisFiltrados = useMemo(
+    () => (especialidade ? profissionais.filter((p) => p.especialidade === especialidade) : profissionais),
+    [profissionais, especialidade],
+  )
 
   useEffect(() => {
     if (!profissionalId || !data) return
@@ -60,6 +73,24 @@ export default function AgendarConsulta() {
       </div>
 
       <Card className="space-y-4">
+        <Field label="Especialidade">
+          <Select
+            value={especialidade}
+            onChange={(e) => {
+              setEspecialidade(e.target.value)
+              setProfissionalId('')
+              setHora('')
+            }}
+          >
+            <option value="">Todas as especialidades</option>
+            {especialidades.map((esp) => (
+              <option key={esp} value={esp}>
+                {esp}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
         <Field label="Profissional">
           <Select
             value={profissionalId}
@@ -69,7 +100,7 @@ export default function AgendarConsulta() {
             }}
           >
             <option value="">Selecione</option>
-            {profissionais.map((p) => (
+            {profissionaisFiltrados.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nome} ({p.especialidade})
               </option>
