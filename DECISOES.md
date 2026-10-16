@@ -279,6 +279,44 @@ Criar um endpoint dedicado `GET /especialidades` — descartado por over-enginee
 
 ---
 
+## Funcionalidade 2 — Histórico de consultas do paciente
+
+**O que eu vi**
+
+A rota `GET /consultas/minhas` filtrava `data >= hoje`, então o paciente só via consultas futuras. Não havia forma de consultar consultas passadas (realizadas, canceladas ou faltas).
+
+**O que achei que era**
+
+Era o espelho da rota existente: uma nova rota `GET /consultas/historico` filtrando `data < hoje`, ordenada da mais recente para a mais antiga, mais uma tela nova na área do paciente.
+
+**Como confirmei**
+
+Lendo `apps/api/src/rotas/consultas.ts`: a rota `/minhas` usava `data: { gte: hojeEmRecife() }`. Bastava inverter o operador para `lt`.
+
+**O que fiz e por quê**
+
+API: criei `GET /consultas/historico` com `data: { lt: hojeEmRecife() }` e `orderBy: { inicio: 'desc' }` (mais recente primeiro, que é o esperado em um histórico). Mantive o mesmo formato de resposta de `/minhas` (com `profissionalNome` e `especialidade`) para reaproveitar o componente de cartão.
+
+Decidi criar uma **rota separada** ao invés de adicionar um parâmetro `?periodo=passado` na rota existente. Motivos: ordenação diferente (histórico é desc, agenda futura é asc), semântica clara, e não quebra o contrato da rota `/minhas` que o frontend já consome.
+
+Frontend: criei o organism `HistoricoConsultas` e a página `/paciente/historico`. Reaproveitei o `CartaoConsulta` existente passando `onCancelar` vazio — o histórico é somente leitura, e o cartão só mostra o botão de cancelar quando `status === 'agendada'`, que nunca é o caso no passado. Adicionei navegação bidirecional: link "Ver histórico" na tela de consultas e "Voltar" no histórico.
+
+**Como testei**
+
+3 testes na API: retorna só consultas passadas ordenadas corretamente, não vaza consultas de outros pacientes, e exige perfil de paciente (403 para recepção). 11 testes de consultas passando no total.
+
+**O que considerei e descartei**
+
+Adicionar `?periodo=` à rota `/minhas` — descartado pela diferença de ordenação e para manter o contrato existente intacto.
+
+Criar um novo componente de cartão para o histórico — descartado porque o `CartaoConsulta` já lida corretamente com o estado somente-leitura.
+
+**Quanto tempo levou**
+
+~25 minutos
+
+---
+
 ## Ordem das funcionalidades, com justificativa
 
 1. **Busca de profissionais por especialidade** — baixo esforço, alto impacto no fluxo principal de agendamento. Sem isso, o paciente vê uma lista plana sem contexto.
