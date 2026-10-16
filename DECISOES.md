@@ -233,9 +233,29 @@ Manter a `GRADE` como fallback inicial e só atualizar após a resposta — desc
 
 **Como montei o fluxo**
 
+O fluxo está em `n8n/lembrete.json` e tem 4 nós:
+
+1. **Schedule Trigger** ("Todo dia às 8h") — dispara diariamente às 8h, no fuso America/Recife.
+2. **HTTP Request** ("Buscar consultas de amanhã") — chama `GET http://host.docker.internal:3333/integracoes/lembretes` com o cabeçalho `x-chave-integracao`. Sem o parâmetro `data`, a API já devolve as consultas agendadas do dia seguinte, que é exatamente o lembrete de 24h antes.
+3. **Split Out** ("Uma consulta por item") — transforma o array de consultas em um item por consulta, para que o envio de e-mail rode uma vez por paciente.
+4. **Send Email** ("Enviar e-mail de lembrete") — envia pelo SMTP do Mailpit (host `mailpit`, porta `1025`, sem auth/SSL) um e-mail para `pacienteEmail` com data, hora, profissional, especialidade e tipo da consulta.
+
+Escolhi reaproveitar o endpoint `GET /integracoes/lembretes` que já existia e já tinha testes, ao invés de implementar o lembrete no código da API. Isso mantém a regra de "o que enviar" na API (testável) e deixa o n8n cuidar só do "quando e como entregar". O endpoint já filtra `status: 'agendada'`, então consultas canceladas não geram lembrete.
+
 **Como testei**
 
+Validei o JSON do fluxo (`node -e JSON.parse`) e confirmei que o endpoint `/integracoes/lembretes` responde corretamente — ele tem 3 testes automatizados passando (exige chave, devolve consultas do dia com contato, usa o dia seguinte por padrão).
+
+Não consegui concluir o teste de ponta a ponta no n8n dentro do prazo: o container do n8n estava baixando a imagem (~1,6 GB) no fim do tempo disponível. O fluxo está pronto para importar (menu → Import from File → `n8n/lembrete.json`), bastando criar a credencial SMTP "Mailpit local" (host `mailpit`, porta `1025`) e executar. Os e-mails apareceriam no Mailpit em `http://localhost:8025`.
+
 **O que mudaria para usar em produção**
+
+- **Idempotência**: marcar no banco quais consultas já receberam lembrete (ex: campo `lembreteEnviadoEm`), para não enviar duas vezes se o fluxo rodar de novo ou falhar no meio.
+- **SMTP real**: trocar o Mailpit por um provedor de e-mail transacional (SES, SendGrid) com credenciais em variáveis de ambiente, não no fluxo.
+- **Segurança da chave**: a `x-chave-integracao` deveria vir de uma credencial do n8n, não hardcoded no nó HTTP.
+- **Tratamento de falhas**: adicionar retry e uma rota de erro no fluxo para e-mails que falharem, com alerta para a equipe.
+- **Fuso e horário de envio**: confirmar o melhor horário com a clínica (8h pode ser cedo demais ou tarde demais dependendo do perfil dos pacientes).
+- **Canal**: avaliar SMS/WhatsApp além de e-mail, que tende a ter baixa taxa de abertura para lembretes.
 
 ## Funcionalidade 1 — Busca de profissionais por especialidade
 
@@ -332,4 +352,24 @@ Criar um novo componente de cartão para o histórico — descartado porque o `C
 
 ## Como usei IA
 
+Usei IA (Kiro) como par de programação durante todo o desafio. O fluxo foi: eu conduzia as decisões (o que investigar, qual bug priorizar, qual funcionalidade implementar) e a IA ajudava a explorar o código, propor correções e escrever testes. Antes de aceitar qualquer sugestão, eu revisava e rodava.
+
+Onde ajudou bem:
+- **Mapear o projeto rápido**: levantou a arquitetura (API Express/Prisma, web Next.js, shared) e listou os bugs candidatos a partir dos relatos da clínica, o que me poupou tempo de leitura inicial.
+- **Correções de bug cirúrgicas**: a sobreposição de intervalos (B2) e o filtro de status nos horários (B3) foram diagnosticados e corrigidos com precisão.
+- **Testes**: gerou a bateria de testes de API e de componente seguindo os helpers e o padrão que já existiam no projeto.
+
+Onde errou ou precisei corrigir:
+- **`toBeInTheDocument` nos testes de componente**: a IA assumiu que o `@testing-library/jest-dom` estava instalado, mas não estava. Os testes falharam e eu descartei essa abordagem — reescrevemos usando `toBeTruthy()` e `toBeNull()`, que funcionam com o que o projeto já tinha.
+- **`getByText` vs `findByText`**: o primeiro teste da lista de consultas usava `waitFor(getByText(...))` e dava timeout; troquei por `findByText` com `{ exact: false }` porque o nome do profissional estava quebrado em vários nós de texto no DOM.
+- **Ambiente Windows**: houve bastante atrito com o terminal (echo de comandos, Docker fora do PATH). A IA insistiu em caminhos que não existiam antes de confirmarmos que o Docker vinha do Docker Desktop/WSL.
+
+No geral, a IA acelerou as partes mecânicas (exploração, boilerplate de teste, redação do DECISOES) e eu mantive o controle das decisões de design e da validação.
+
 ## O que ficou de fora
+
+- **Teste de ponta a ponta do lembrete n8n**: o fluxo está pronto em `n8n/lembrete.json` e o endpoint tem testes, mas não deu tempo de subir o n8n (download da imagem de ~1,6 GB) e validar o envio real no Mailpit antes do prazo. O que falta é: importar o fluxo, criar a credencial SMTP e executar.
+- **Demais funcionalidades da lista**: implementei as duas pedidas (busca por especialidade e histórico). As outras oito foram apenas priorizadas e justificadas, não implementadas.
+- **Idempotência do lembrete**: como descrito na seção do n8n, em produção o lembrete precisaria registrar o que já foi enviado para não duplicar.
+- **Testes de componente mais amplos no web**: cobri `MinhasConsultas` e `MarcarConsulta`, mas as telas de histórico e os seletores de especialidade ficaram só com os testes de API. O histórico reutiliza componentes já testados, então o risco é baixo.
+- **O bug B4 que corrigi** (CHAVE_INTEGRACAO vazia bloqueando a rota) foi observado mas não alterado — é um comportamento "fail closed" que considerei aceitável; registraria como decisão consciente, não como bug a corrigir.
