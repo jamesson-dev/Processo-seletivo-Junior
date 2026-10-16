@@ -1,4 +1,5 @@
 import request from 'supertest'
+import { hojeEmRecife } from '@bemviver/shared'
 import { describe, expect, it } from 'vitest'
 import { app } from '../src/app'
 import { criarConsulta, criarUsuario, proximaSegunda, somarDias } from './ajuda'
@@ -154,6 +155,76 @@ describe('consultas', () => {
         .send({ profissionalId: profissional.id, pacienteId: paciente2.id, data, hora: '14:00', tipo: 'retorno' })
 
       expect(resposta.status).toBe(201)
+    })
+  })
+
+  describe('GET /consultas/historico', () => {
+    it('retorna apenas consultas passadas do paciente, da mais recente para a mais antiga', async () => {
+      const paciente = await criarUsuario('paciente')
+      const profissional = await criarUsuario('profissional')
+      const hoje = hojeEmRecife()
+
+      // Duas consultas no passado e uma no futuro
+      await criarConsulta({
+        profissionalId: profissional.id,
+        pacienteId: paciente.id,
+        data: somarDias(hoje, -10),
+        hora: '09:00',
+        status: 'realizada',
+      })
+      await criarConsulta({
+        profissionalId: profissional.id,
+        pacienteId: paciente.id,
+        data: somarDias(hoje, -3),
+        hora: '10:00',
+        status: 'faltou',
+      })
+      await criarConsulta({
+        profissionalId: profissional.id,
+        pacienteId: paciente.id,
+        data: proximaSegunda(),
+        hora: '11:00',
+        status: 'agendada',
+      })
+
+      const resposta = await request(app).get('/consultas/historico').set('Authorization', paciente.auth)
+
+      expect(resposta.status).toBe(200)
+      expect(resposta.body).toHaveLength(2)
+      // Ordenado da mais recente para a mais antiga
+      expect(resposta.body[0].data).toBe(somarDias(hoje, -3))
+      expect(resposta.body[1].data).toBe(somarDias(hoje, -10))
+      // Inclui nome do profissional e especialidade
+      expect(resposta.body[0].profissionalNome).toEqual(expect.any(String))
+      expect(resposta.body[0].especialidade).toEqual(expect.any(String))
+    })
+
+    it('não retorna consultas de outros pacientes', async () => {
+      const paciente1 = await criarUsuario('paciente')
+      const paciente2 = await criarUsuario('paciente')
+      const profissional = await criarUsuario('profissional')
+      const hoje = hojeEmRecife()
+
+      await criarConsulta({
+        profissionalId: profissional.id,
+        pacienteId: paciente2.id,
+        data: somarDias(hoje, -5),
+        hora: '09:00',
+        status: 'realizada',
+      })
+
+      const resposta = await request(app).get('/consultas/historico').set('Authorization', paciente1.auth)
+
+      expect(resposta.status).toBe(200)
+      expect(resposta.body).toHaveLength(0)
+    })
+
+    it('exige o perfil de paciente', async () => {
+      const recepcao = await criarUsuario('recepcao')
+
+      const resposta = await request(app).get('/consultas/historico').set('Authorization', recepcao.auth)
+
+      expect(resposta.status).toBe(403)
     })
   })
 })
