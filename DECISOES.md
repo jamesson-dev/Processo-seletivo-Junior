@@ -244,9 +244,16 @@ Escolhi reaproveitar o endpoint `GET /integracoes/lembretes` que já existia e j
 
 **Como testei**
 
-Validei o JSON do fluxo (`node -e JSON.parse`) e confirmei que o endpoint `/integracoes/lembretes` responde corretamente — ele tem 3 testes automatizados passando (exige chave, devolve consultas do dia com contato, usa o dia seguinte por padrão).
+Validei o JSON do fluxo e confirmei que o endpoint `/integracoes/lembretes` responde corretamente — ele tem 3 testes automatizados passando (exige chave, devolve consultas do dia com contato, usa o dia seguinte por padrão).
 
-Não consegui concluir o teste de ponta a ponta no n8n dentro do prazo: o container do n8n estava baixando a imagem (~1,6 GB) no fim do tempo disponível. O fluxo está pronto para importar (menu → Import from File → `n8n/lembrete.json`), bastando criar a credencial SMTP "Mailpit local" (host `mailpit`, porta `1025`) e executar. Os e-mails apareceriam no Mailpit em `http://localhost:8025`.
+Teste de ponta a ponta concluído com sucesso no n8n:
+1. Importei o fluxo (menu → Import from File → `n8n/lembrete.json`).
+2. Criei a credencial SMTP "Mailpit local" (host `mailpit`, porta `1025`, sem auth/SSL).
+3. Como o dia seguinte caía num sábado (clínica fechada), apontei temporariamente o nó HTTP para uma segunda-feira com consultas (`?data=2026-10-19`) só para o teste.
+4. O fluxo rodou: a API devolveu 34 consultas, o Split Out separou em 34 itens, e o nó de e-mail entregou os 34 lembretes no Mailpit (`http://localhost:8025`).
+5. Removi o parâmetro de teste — o fluxo versionado no repositório usa o comportamento padrão (dia seguinte = 24h antes).
+
+Esse detalhe do sábado reforça uma observação: o lembrete "24h antes" literal não cobre bem consultas de segunda (o lembrete cairia no domingo). Em produção, valeria considerar enviar o lembrete no último dia útil anterior.
 
 **O que mudaria para usar em produção**
 
@@ -368,7 +375,7 @@ No geral, a IA acelerou as partes mecânicas (exploração, boilerplate de teste
 
 ## O que ficou de fora
 
-- **Teste de ponta a ponta do lembrete n8n**: o fluxo está pronto em `n8n/lembrete.json` e o endpoint tem testes, mas não deu tempo de subir o n8n (download da imagem de ~1,6 GB) e validar o envio real no Mailpit antes do prazo. O que falta é: importar o fluxo, criar a credencial SMTP e executar.
+- **Lembrete em dias não úteis**: o fluxo envia o lembrete para as consultas do dia seguinte. Quando o dia seguinte é fim de semana, não há consultas e nada é enviado — mas isso significa que consultas de segunda não recebem lembrete de 24h antes (o lembrete cairia no domingo). Em produção, enviaria no último dia útil anterior.
 - **Demais funcionalidades da lista**: implementei as duas pedidas (busca por especialidade e histórico). As outras oito foram apenas priorizadas e justificadas, não implementadas.
 - **Idempotência do lembrete**: como descrito na seção do n8n, em produção o lembrete precisaria registrar o que já foi enviado para não duplicar.
 - **Testes de componente mais amplos no web**: cobri `MinhasConsultas` e `MarcarConsulta`, mas as telas de histórico e os seletores de especialidade ficaram só com os testes de API. O histórico reutiliza componentes já testados, então o risco é baixo.
