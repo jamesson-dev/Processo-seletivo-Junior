@@ -22,6 +22,22 @@ rotasConsultas.get('/minhas', permitir('paciente'), async (req, res) => {
   )
 })
 
+rotasConsultas.get('/historico', permitir('paciente'), async (req, res) => {
+  const consultas = await prisma.consulta.findMany({
+    where: { pacienteId: req.usuario.id, data: { lt: hojeEmRecife() } },
+    include: { profissional: { include: { usuario: { select: { nome: true } } } } },
+    orderBy: { inicio: 'desc' },
+  })
+
+  res.json(
+    consultas.map(({ profissional, ...consulta }) => ({
+      ...consulta,
+      profissionalNome: profissional.usuario.nome,
+      especialidade: profissional.especialidade,
+    })),
+  )
+})
+
 rotasConsultas.post('/', permitir('paciente', 'recepcao'), async (req, res) => {
   const profissionalId = String(req.body?.profissionalId ?? '')
   const data = String(req.body?.data ?? '')
