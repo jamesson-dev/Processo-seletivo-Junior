@@ -1,0 +1,126 @@
+{
+  "name": "Lembrete de consulta 24h antes",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Todo dia às 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:3333/integracoes/lembretes",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-chave-integracao",
+              "value": "chave-local-do-n8n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Buscar consultas de amanhã",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Uma consulta por item",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "clinica@bemviver.com.br",
+        "toEmail": "={{ $json.pacienteEmail }}",
+        "subject": "=Lembrete: sua consulta é amanhã às {{ $json.hora }}",
+        "emailFormat": "text",
+        "text": "=Olá {{ $json.pacienteNome }},\n\nEste é um lembrete da sua consulta na Clínica Bem Viver.\n\nData: {{ $json.data }}\nHorário: {{ $json.hora }}\nProfissional: {{ $json.profissionalNome }} ({{ $json.especialidade }})\nTipo: {{ $json.tipo }}\n\nSe não puder comparecer, cancele ou remarque pelo aplicativo.\n\nAté breve,\nClínica Bem Viver",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Enviar e-mail de lembrete",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "1",
+          "name": "Mailpit local"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Todo dia às 8h": {
+      "main": [
+        [
+          {
+            "node": "Buscar consultas de amanhã",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar consultas de amanhã": {
+      "main": [
+        [
+          {
+            "node": "Uma consulta por item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Uma consulta por item": {
+      "main": [
+        [
+          {
+            "node": "Enviar e-mail de lembrete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Recife"
+  },
+  "pinData": {}
+}
