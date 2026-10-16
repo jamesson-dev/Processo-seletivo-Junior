@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Consulta } from '@bemviver/shared'
+import Link from 'next/link'
 import Alert from '@/components/atoms/Alert/alert'
 import LinkButton from '@/components/atoms/LinkButton/linkButton'
 import CartaoConsulta from '@/components/molecules/CartaoConsulta/cartaoConsulta'
@@ -38,6 +39,10 @@ export default function MinhasConsultas() {
         <h1 className="text-xl font-semibold">Minhas consultas</h1>
         <LinkButton href="/paciente/agendar">Marcar consulta</LinkButton>
       </div>
+
+      <Link href="/paciente/historico" className="inline-block text-sm text-teal-700 underline">
+        Ver histórico de consultas
+      </Link>
 
       {erro && <Alert>{erro}</Alert>}
 
